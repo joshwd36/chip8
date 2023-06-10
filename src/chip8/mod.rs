@@ -99,6 +99,13 @@ impl Chip8 {
                 let nnn = instruction.nnn();
                 self.program_counter = nnn;
             }
+            0x7 => {
+                let x = instruction.x();
+                let nn = instruction.nn();
+                let existing = self.registers.get_value(x);
+                let new = existing + nn;
+                self.registers.set_value(x, new);
+            }
             _ => panic!("Unknown instruction {}", instruction),
         }
     }
