@@ -103,8 +103,107 @@ impl Chip8 {
                 let x = instruction.x();
                 let nn = instruction.nn();
                 let existing = self.registers.get_value(x);
-                let new = existing + nn;
+                let new = existing.wrapping_add(nn);
                 self.registers.set_value(x, new);
+            }
+            0x3 => {
+                let x = instruction.x();
+                let nn = instruction.nn();
+                let vx = self.registers.get_value(x);
+                if vx == nn {
+                    self.program_counter += 2;
+                }
+            }
+            0x4 => {
+                let x = instruction.x();
+                let nn = instruction.nn();
+                let vx = self.registers.get_value(x);
+                if vx != nn {
+                    self.program_counter += 2;
+                }
+            }
+            0x5 => {
+                let x = instruction.x();
+                let y = instruction.y();
+                let vx = self.registers.get_value(x);
+                let vy = self.registers.get_value(y);
+                if vx == vy {
+                    self.program_counter += 2;
+                }
+            }
+            0x9 => {
+                let x = instruction.x();
+                let y = instruction.y();
+                let vx = self.registers.get_value(x);
+                let vy = self.registers.get_value(y);
+                if vx != vy {
+                    self.program_counter += 2;
+                }
+            }
+            0x2 => {
+                let nnn = instruction.nnn();
+                self.stack.push(self.program_counter);
+                self.program_counter = nnn;
+            }
+            0x0 if instruction.nnn() == 0x0EE => {
+                let address = self.stack.pop().unwrap();
+                self.program_counter = address;
+            }
+            0x8 if instruction.n() == 0x0 => {
+                let x = instruction.x();
+                let y = instruction.y();
+                let vy = self.registers.get_value(y);
+                self.registers.set_value(x, vy);
+            }
+            0x8 if instruction.n() == 0x1 => {
+                let x = instruction.x();
+                let y = instruction.y();
+                let vx = self.registers.get_value(x);
+                let vy = self.registers.get_value(y);
+                let value = vx | vy;
+                self.registers.set_value(x, value);
+            }
+            0x8 if instruction.n() == 0x2 => {
+                let x = instruction.x();
+                let y = instruction.y();
+                let vx = self.registers.get_value(x);
+                let vy = self.registers.get_value(y);
+                let value = vx & vy;
+                self.registers.set_value(x, value);
+            }
+            0x8 if instruction.n() == 0x3 => {
+                let x = instruction.x();
+                let y = instruction.y();
+                let vx = self.registers.get_value(x);
+                let vy = self.registers.get_value(y);
+                let value = vx ^ vy;
+                self.registers.set_value(x, value);
+            }
+            0x8 if instruction.n() == 0x4 => {
+                let x = instruction.x();
+                let y = instruction.y();
+                let vx = self.registers.get_value(x);
+                let vy = self.registers.get_value(y);
+                let value = vx.wrapping_add(vy);
+                self.registers.set_value(x, value);
+            }
+            0x8 if instruction.n() == 0x5 => {
+                let x = instruction.x();
+                let y = instruction.y();
+                let vx = self.registers.get_value(x);
+                let vy = self.registers.get_value(y);
+                let value = vx.wrapping_sub(vy);
+                self.registers.set_value(x, value);
+                self.registers.set_value(0xf, (vx > vy) as u8);
+            }
+            0x8 if instruction.n() == 0x7 => {
+                let x = instruction.x();
+                let y = instruction.y();
+                let vx = self.registers.get_value(x);
+                let vy = self.registers.get_value(y);
+                let value = vy.wrapping_sub(vx);
+                self.registers.set_value(x, value);
+                self.registers.set_value(0xf, (vy > vx) as u8);
             }
             _ => panic!("Unknown instruction {}", instruction),
         }
