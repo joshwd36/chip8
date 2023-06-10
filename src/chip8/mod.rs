@@ -6,15 +6,18 @@ use self::{
     display::{Chip8Display, DisplayInstruction},
     memory::{Memory, PROGRAM_START},
     registers::Registers,
+    settings::Settings,
     stack::Stack,
 };
 
 pub mod display;
 mod memory;
 mod registers;
+pub mod settings;
 mod stack;
 
 pub struct Chip8 {
+    settings: Settings,
     memory: Memory,
     display: Chip8Display,
     stack: Stack,
@@ -24,13 +27,14 @@ pub struct Chip8 {
 }
 
 impl Chip8 {
-    pub fn new(program: &[u8], sender: Sender<DisplayInstruction>) -> Self {
+    pub fn new(settings: Settings, program: &[u8], sender: Sender<DisplayInstruction>) -> Self {
         let memory = Memory::new(program);
         let display = Chip8Display::new(sender);
         let stack = Stack::new();
         let registers = Registers::new();
 
         Self {
+            settings,
             memory,
             display,
             stack,
@@ -204,6 +208,32 @@ impl Chip8 {
                 let value = vy.wrapping_sub(vx);
                 self.registers.set_value(x, value);
                 self.registers.set_value(0xf, (vy > vx) as u8);
+            }
+            0x8 if instruction.n() == 0x6 => {
+                let x = instruction.x();
+                let y = instruction.y();
+                let vy = self.registers.get_value(y);
+                if self.settings.assign_shift {
+                    self.registers.set_value(x, vy);
+                }
+                let vx = self.registers.get_value(x);
+                let vf = vx & 0x1 != 0;
+                let shifted = vx >> 1;
+                self.registers.set_value(x, shifted);
+                self.registers.set_value(0xf, vf as u8);
+            }
+            0x8 if instruction.n() == 0xE => {
+                let x = instruction.x();
+                let y = instruction.y();
+                let vy = self.registers.get_value(y);
+                if self.settings.assign_shift {
+                    self.registers.set_value(x, vy);
+                }
+                let vx = self.registers.get_value(x);
+                let vf = vx & 0x80 != 0;
+                let shifted = vx << 1;
+                self.registers.set_value(x, shifted);
+                self.registers.set_value(0xf, vf as u8);
             }
             _ => panic!("Unknown instruction {}", instruction),
         }

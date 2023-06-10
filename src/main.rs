@@ -6,7 +6,7 @@ use std::{
     thread,
 };
 
-use chip8::{display::DisplayInstruction, Chip8};
+use chip8::{display::DisplayInstruction, settings::Settings, Chip8};
 use crossbeam_channel::{unbounded, Receiver};
 use eframe::{
     egui::{self, Sense},
@@ -29,7 +29,8 @@ fn main() -> Result<(), eframe::Error> {
     let (display_sender, display_receiver) = unbounded();
 
     thread::spawn(move || {
-        let mut chip8 = Chip8::new(&program, display_sender);
+        let settings = Settings::default();
+        let mut chip8 = Chip8::new(settings, &program, display_sender);
         chip8.run()
     });
 
