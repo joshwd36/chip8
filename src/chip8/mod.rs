@@ -235,6 +235,28 @@ impl Chip8 {
                 self.registers.set_value(x, shifted);
                 self.registers.set_value(0xf, vf as u8);
             }
+            0xF if instruction.nn() == 0x55 => {
+                let x = instruction.x();
+                for register in 0..=x {
+                    let address = self.index_register + register as u16;
+                    let vx = self.registers.get_value(register);
+                    self.memory.set_u8(address, vx);
+                }
+                if self.settings.load_store_increment {
+                    self.index_register += x as u16 + 1;
+                }
+            }
+            0xF if instruction.nn() == 0x65 => {
+                let x = instruction.x();
+                for register in 0..=x {
+                    let address = self.index_register + register as u16;
+                    let memory_value = self.memory.get_u8(address);
+                    self.registers.set_value(register, memory_value);
+                }
+                if self.settings.load_store_increment {
+                    self.index_register += x as u16 + 1;
+                }
+            }
             _ => panic!("Unknown instruction {}", instruction),
         }
     }

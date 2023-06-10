@@ -43,4 +43,8 @@ impl Memory {
         let b = self.buffer[(address + 1) as usize];
         u16::from_be_bytes([a, b])
     }
+
+    pub fn set_u8(&mut self, address: u16, value: u8) {
+        self.buffer[address as usize] = value;
+    }
 }
