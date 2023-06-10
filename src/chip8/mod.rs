@@ -267,6 +267,15 @@ impl Chip8 {
                 self.memory.set_u8(self.index_register + 1, second);
                 self.memory.set_u8(self.index_register + 2, third);
             }
+            0xF if instruction.nn() == 0x1E => {
+                let x = instruction.x();
+                let vx = self.registers.get_value(x);
+                self.index_register += vx as u16;
+                if self.settings.add_to_index_overflow {
+                    let overflowed = self.index_register > 0x0FFF;
+                    self.registers.set_value(0xF, overflowed as u8);
+                }
+            }
             _ => panic!("Unknown instruction {}", instruction),
         }
     }
