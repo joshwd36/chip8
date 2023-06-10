@@ -188,26 +188,27 @@ impl Chip8 {
                 let y = instruction.y();
                 let vx = self.registers.get_value(x);
                 let vy = self.registers.get_value(y);
-                let value = vx.wrapping_add(vy);
+                let (value, overflowed) = vx.overflowing_add(vy);
                 self.registers.set_value(x, value);
+                self.registers.set_value(0xF, overflowed as u8);
             }
             0x8 if instruction.n() == 0x5 => {
                 let x = instruction.x();
                 let y = instruction.y();
                 let vx = self.registers.get_value(x);
                 let vy = self.registers.get_value(y);
-                let value = vx.wrapping_sub(vy);
+                let (value, overflowed) = vx.overflowing_sub(vy);
                 self.registers.set_value(x, value);
-                self.registers.set_value(0xf, (vx > vy) as u8);
+                self.registers.set_value(0xf, !overflowed as u8);
             }
             0x8 if instruction.n() == 0x7 => {
                 let x = instruction.x();
                 let y = instruction.y();
                 let vx = self.registers.get_value(x);
                 let vy = self.registers.get_value(y);
-                let value = vy.wrapping_sub(vx);
+                let (value, overflowed) = vy.overflowing_sub(vx);
                 self.registers.set_value(x, value);
-                self.registers.set_value(0xf, (vy > vx) as u8);
+                self.registers.set_value(0xf, !overflowed as u8);
             }
             0x8 if instruction.n() == 0x6 => {
                 let x = instruction.x();

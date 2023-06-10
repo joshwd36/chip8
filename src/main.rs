@@ -20,7 +20,7 @@ fn main() -> Result<(), eframe::Error> {
         ..Default::default()
     };
 
-    let file = File::open("roms/3-corax+.ch8").unwrap();
+    let file = File::open("roms/4-flags.ch8").unwrap();
     let mut reader = BufReader::new(file);
     let mut program = Vec::new();
 
