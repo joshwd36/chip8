@@ -1,7 +1,4 @@
-use std::{
-    fmt::Display,
-    time::{Duration, Instant},
-};
+use std::{fmt::Display, time::Instant};
 
 use crossbeam_channel::{Receiver, Sender};
 use rand::{rngs::ThreadRng, Rng};
@@ -78,6 +75,7 @@ impl Chip8 {
                 self.delay_timer.decrement();
                 self.sound_timer.decrement();
             }
+            self.keypad.process();
             let instruction = self.fetch();
             self.execute(instruction);
         }
@@ -121,6 +119,8 @@ impl Chip8 {
             0xF if instruction.nn() == 0x07 => self.get_delay_timer_value(instruction.x()),
             0xF if instruction.nn() == 0x15 => self.set_delay_timer_value(instruction.x()),
             0xF if instruction.nn() == 0x18 => self.set_sound_timer_value(instruction.x()),
+            0xE if instruction.nn() == 0x9E => self.skip_if_key_pressed(instruction.x()),
+            0xE if instruction.nn() == 0xA1 => self.skip_if_key_not_pressed(instruction.x()),
             _ => panic!("Unknown instruction {}", instruction),
         }
     }
@@ -345,6 +345,20 @@ impl Chip8 {
     fn set_sound_timer_value(&mut self, register_number: u8) {
         let value = self.registers.get_value(register_number);
         self.sound_timer.set_value(value);
+    }
+
+    fn skip_if_key_pressed(&mut self, register_number: u8) {
+        let key_number = self.registers.get_value(register_number);
+        if self.keypad.is_key_pressed(key_number) {
+            self.program_counter += 2;
+        }
+    }
+
+    fn skip_if_key_not_pressed(&mut self, register_number: u8) {
+        let key_number = self.registers.get_value(register_number);
+        if !self.keypad.is_key_pressed(key_number) {
+            self.program_counter += 2;
+        }
     }
 }
 
