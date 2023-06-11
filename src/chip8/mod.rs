@@ -121,6 +121,7 @@ impl Chip8 {
             0xF if instruction.nn() == 0x18 => self.set_sound_timer_value(instruction.x()),
             0xE if instruction.nn() == 0x9E => self.skip_if_key_pressed(instruction.x()),
             0xE if instruction.nn() == 0xA1 => self.skip_if_key_not_pressed(instruction.x()),
+            0xB => self.jump_with_offset(instruction.nnn(), instruction.x()),
             _ => panic!("Unknown instruction {}", instruction),
         }
     }
@@ -359,6 +360,17 @@ impl Chip8 {
         if !self.keypad.is_key_pressed(key_number) {
             self.program_counter += 2;
         }
+    }
+
+    fn jump_with_offset(&mut self, address: u16, register_number: u8) {
+        let address = if self.settings.jump_with_offset_add {
+            let value_x = self.registers.get_value(register_number);
+            address + value_x as u16
+        } else {
+            let value_0 = self.registers.get_value(0);
+            address + value_0 as u16
+        };
+        self.program_counter = address
     }
 }
 
