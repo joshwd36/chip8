@@ -20,7 +20,7 @@ fn main() -> Result<(), eframe::Error> {
         ..Default::default()
     };
 
-    let file = File::open("roms/5-quirks.ch8").unwrap();
+    let file = File::open("roms/6-keypad.ch8").unwrap();
     let mut reader = BufReader::new(file);
     let mut program = Vec::new();
 
