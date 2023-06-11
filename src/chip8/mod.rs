@@ -1,4 +1,7 @@
-use std::fmt::Display;
+use std::{
+    fmt::Display,
+    time::{Duration, Instant},
+};
 
 use crossbeam_channel::{Receiver, Sender};
 use rand::{rngs::ThreadRng, Rng};
@@ -10,6 +13,7 @@ use self::{
     registers::Registers,
     settings::Settings,
     stack::Stack,
+    timer::{Timer, TIMER_DECREMENT},
 };
 
 pub mod display;
@@ -18,6 +22,7 @@ mod memory;
 mod registers;
 pub mod settings;
 mod stack;
+mod timer;
 
 pub struct Chip8 {
     settings: Settings,
@@ -29,6 +34,8 @@ pub struct Chip8 {
     index_register: u16,
     rng: ThreadRng,
     keypad: Keypad,
+    delay_timer: Timer,
+    sound_timer: Timer,
 }
 
 impl Chip8 {
@@ -44,6 +51,8 @@ impl Chip8 {
         let registers = Registers::new();
         let rng = rand::thread_rng();
         let keypad = Keypad::new(receiver);
+        let delay_timer = Timer::new();
+        let sound_timer = Timer::new();
 
         Self {
             settings,
@@ -55,11 +64,20 @@ impl Chip8 {
             index_register: 0,
             rng,
             keypad,
+            delay_timer,
+            sound_timer,
         }
     }
 
     pub fn run(&mut self) {
+        let mut last_decremented = Instant::now();
         loop {
+            let time = Instant::now();
+            if time - last_decremented >= TIMER_DECREMENT {
+                last_decremented = time;
+                self.delay_timer.decrement();
+                self.sound_timer.decrement();
+            }
             let instruction = self.fetch();
             self.execute(instruction);
         }
@@ -100,6 +118,9 @@ impl Chip8 {
             0xF if instruction.nn() == 0x33 => self.binary_coded_decimal(instruction.x()),
             0xF if instruction.nn() == 0x1E => self.add_to_index(instruction.x()),
             0xC => self.random(instruction.x(), instruction.nn()),
+            0xF if instruction.nn() == 0x07 => self.get_delay_timer_value(instruction.x()),
+            0xF if instruction.nn() == 0x15 => self.set_delay_timer_value(instruction.x()),
+            0xF if instruction.nn() == 0x18 => self.set_sound_timer_value(instruction.x()),
             _ => panic!("Unknown instruction {}", instruction),
         }
     }
@@ -309,6 +330,21 @@ impl Chip8 {
         let random_number: u8 = self.rng.gen();
         let result = random_number & mask;
         self.registers.set_value(register_number, result);
+    }
+
+    fn get_delay_timer_value(&mut self, register_number: u8) {
+        let value = self.delay_timer.get_value();
+        self.registers.set_value(register_number, value);
+    }
+
+    fn set_delay_timer_value(&mut self, register_number: u8) {
+        let value = self.registers.get_value(register_number);
+        self.delay_timer.set_value(value);
+    }
+
+    fn set_sound_timer_value(&mut self, register_number: u8) {
+        let value = self.registers.get_value(register_number);
+        self.sound_timer.set_value(value);
     }
 }
 
