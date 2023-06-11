@@ -1,6 +1,7 @@
 use std::fmt::Display;
 
 use crossbeam_channel::Sender;
+use rand::{rngs::ThreadRng, Rng};
 
 use self::{
     display::{Chip8Display, DisplayInstruction},
@@ -24,6 +25,7 @@ pub struct Chip8 {
     registers: Registers,
     program_counter: u16,
     index_register: u16,
+    rng: ThreadRng,
 }
 
 impl Chip8 {
@@ -32,6 +34,7 @@ impl Chip8 {
         let display = Chip8Display::new(sender);
         let stack = Stack::new();
         let registers = Registers::new();
+        let rng = rand::thread_rng();
 
         Self {
             settings,
@@ -41,6 +44,7 @@ impl Chip8 {
             registers,
             program_counter: PROGRAM_START,
             index_register: 0,
+            rng,
         }
     }
 
@@ -85,6 +89,7 @@ impl Chip8 {
             0xF if instruction.nn() == 0x65 => self.load_registers(instruction.x()),
             0xF if instruction.nn() == 0x33 => self.binary_coded_decimal(instruction.x()),
             0xF if instruction.nn() == 0x1E => self.add_to_index(instruction.x()),
+            0xC => self.random(instruction.x(), instruction.nn()),
             _ => panic!("Unknown instruction {}", instruction),
         }
     }
@@ -288,6 +293,12 @@ impl Chip8 {
             let overflowed = self.index_register > 0x0FFF;
             self.registers.set_value(0xF, overflowed as u8);
         }
+    }
+
+    fn random(&mut self, register_number: u8, mask: u8) {
+        let random_number: u8 = self.rng.gen();
+        let result = random_number & mask;
+        self.registers.set_value(register_number, result);
     }
 }
 
