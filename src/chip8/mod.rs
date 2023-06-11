@@ -60,224 +60,233 @@ impl Chip8 {
     fn execute(&mut self, instruction: Instruction) {
         let first = instruction.first();
         match first {
-            0x0 if instruction.nnn() == 0x0E0 => {
-                self.display.clear();
-            }
-            0x6 => {
-                let x = instruction.x();
-                let nn = instruction.nn();
-                self.registers.set_value(x, nn);
-            }
-            0xA => {
-                let nnn = instruction.nnn();
-                self.index_register = nnn;
-            }
-            0xD => {
-                let x = instruction.x();
-                let y = instruction.y();
-                let n = instruction.n();
-
-                let x_start = self.registers.get_value(x) % 64;
-                let y_start = self.registers.get_value(y) % 32;
-
-                let mut vf = false;
-
-                for row in 0..n {
-                    let y = y_start + row;
-                    if y >= 32 {
-                        break;
-                    }
-                    let sprite_data = self.memory.get_u8(self.index_register + (row as u16));
-                    for x_offset in (BitIterator { num: sprite_data }) {
-                        let x = x_start + x_offset;
-                        if x >= 64 {
-                            break;
-                        }
-                        vf |= self.display.set(x as usize, y as usize);
-                    }
-                }
-
-                self.registers.set_value(0xF, vf as u8);
-            }
-            0x1 => {
-                let nnn = instruction.nnn();
-                self.program_counter = nnn;
-            }
-            0x7 => {
-                let x = instruction.x();
-                let nn = instruction.nn();
-                let existing = self.registers.get_value(x);
-                let new = existing.wrapping_add(nn);
-                self.registers.set_value(x, new);
-            }
-            0x3 => {
-                let x = instruction.x();
-                let nn = instruction.nn();
-                let vx = self.registers.get_value(x);
-                if vx == nn {
-                    self.program_counter += 2;
-                }
-            }
-            0x4 => {
-                let x = instruction.x();
-                let nn = instruction.nn();
-                let vx = self.registers.get_value(x);
-                if vx != nn {
-                    self.program_counter += 2;
-                }
-            }
-            0x5 => {
-                let x = instruction.x();
-                let y = instruction.y();
-                let vx = self.registers.get_value(x);
-                let vy = self.registers.get_value(y);
-                if vx == vy {
-                    self.program_counter += 2;
-                }
-            }
-            0x9 => {
-                let x = instruction.x();
-                let y = instruction.y();
-                let vx = self.registers.get_value(x);
-                let vy = self.registers.get_value(y);
-                if vx != vy {
-                    self.program_counter += 2;
-                }
-            }
-            0x2 => {
-                let nnn = instruction.nnn();
-                self.stack.push(self.program_counter);
-                self.program_counter = nnn;
-            }
-            0x0 if instruction.nnn() == 0x0EE => {
-                let address = self.stack.pop().unwrap();
-                self.program_counter = address;
-            }
-            0x8 if instruction.n() == 0x0 => {
-                let x = instruction.x();
-                let y = instruction.y();
-                let vy = self.registers.get_value(y);
-                self.registers.set_value(x, vy);
-            }
-            0x8 if instruction.n() == 0x1 => {
-                let x = instruction.x();
-                let y = instruction.y();
-                let vx = self.registers.get_value(x);
-                let vy = self.registers.get_value(y);
-                let value = vx | vy;
-                self.registers.set_value(x, value);
-            }
-            0x8 if instruction.n() == 0x2 => {
-                let x = instruction.x();
-                let y = instruction.y();
-                let vx = self.registers.get_value(x);
-                let vy = self.registers.get_value(y);
-                let value = vx & vy;
-                self.registers.set_value(x, value);
-            }
-            0x8 if instruction.n() == 0x3 => {
-                let x = instruction.x();
-                let y = instruction.y();
-                let vx = self.registers.get_value(x);
-                let vy = self.registers.get_value(y);
-                let value = vx ^ vy;
-                self.registers.set_value(x, value);
-            }
-            0x8 if instruction.n() == 0x4 => {
-                let x = instruction.x();
-                let y = instruction.y();
-                let vx = self.registers.get_value(x);
-                let vy = self.registers.get_value(y);
-                let (value, overflowed) = vx.overflowing_add(vy);
-                self.registers.set_value(x, value);
-                self.registers.set_value(0xF, overflowed as u8);
-            }
-            0x8 if instruction.n() == 0x5 => {
-                let x = instruction.x();
-                let y = instruction.y();
-                let vx = self.registers.get_value(x);
-                let vy = self.registers.get_value(y);
-                let (value, overflowed) = vx.overflowing_sub(vy);
-                self.registers.set_value(x, value);
-                self.registers.set_value(0xf, !overflowed as u8);
-            }
-            0x8 if instruction.n() == 0x7 => {
-                let x = instruction.x();
-                let y = instruction.y();
-                let vx = self.registers.get_value(x);
-                let vy = self.registers.get_value(y);
-                let (value, overflowed) = vy.overflowing_sub(vx);
-                self.registers.set_value(x, value);
-                self.registers.set_value(0xf, !overflowed as u8);
-            }
-            0x8 if instruction.n() == 0x6 => {
-                let x = instruction.x();
-                let y = instruction.y();
-                let vy = self.registers.get_value(y);
-                if self.settings.assign_shift {
-                    self.registers.set_value(x, vy);
-                }
-                let vx = self.registers.get_value(x);
-                let vf = vx & 0x1 != 0;
-                let shifted = vx >> 1;
-                self.registers.set_value(x, shifted);
-                self.registers.set_value(0xf, vf as u8);
-            }
-            0x8 if instruction.n() == 0xE => {
-                let x = instruction.x();
-                let y = instruction.y();
-                let vy = self.registers.get_value(y);
-                if self.settings.assign_shift {
-                    self.registers.set_value(x, vy);
-                }
-                let vx = self.registers.get_value(x);
-                let vf = vx & 0x80 != 0;
-                let shifted = vx << 1;
-                self.registers.set_value(x, shifted);
-                self.registers.set_value(0xf, vf as u8);
-            }
-            0xF if instruction.nn() == 0x55 => {
-                let x = instruction.x();
-                for register in 0..=x {
-                    let address = self.index_register + register as u16;
-                    let vx = self.registers.get_value(register);
-                    self.memory.set_u8(address, vx);
-                }
-                if self.settings.load_store_increment {
-                    self.index_register += x as u16 + 1;
-                }
-            }
-            0xF if instruction.nn() == 0x65 => {
-                let x = instruction.x();
-                for register in 0..=x {
-                    let address = self.index_register + register as u16;
-                    let memory_value = self.memory.get_u8(address);
-                    self.registers.set_value(register, memory_value);
-                }
-                if self.settings.load_store_increment {
-                    self.index_register += x as u16 + 1;
-                }
-            }
-            0xF if instruction.nn() == 0x33 => {
-                let x = instruction.x();
-                let vx = self.registers.get_value(x);
-                let first = vx / 100;
-                let second = (vx / 10) % 10;
-                let third = vx % 10;
-                self.memory.set_u8(self.index_register, first);
-                self.memory.set_u8(self.index_register + 1, second);
-                self.memory.set_u8(self.index_register + 2, third);
-            }
-            0xF if instruction.nn() == 0x1E => {
-                let x = instruction.x();
-                let vx = self.registers.get_value(x);
-                self.index_register += vx as u16;
-                if self.settings.add_to_index_overflow {
-                    let overflowed = self.index_register > 0x0FFF;
-                    self.registers.set_value(0xF, overflowed as u8);
-                }
-            }
+            0x0 if instruction.nnn() == 0x0E0 => self.clear_display(),
+            0x6 => self.set_value(instruction.x(), instruction.nn()),
+            0xA => self.set_index(instruction.nnn()),
+            0xD => self.display(instruction.x(), instruction.y(), instruction.n()),
+            0x1 => self.jump(instruction.nnn()),
+            0x7 => self.add_value(instruction.x(), instruction.nn()),
+            0x3 => self.skip_if_equals_value(instruction.x(), instruction.nn()),
+            0x4 => self.skip_if_not_equals_value(instruction.x(), instruction.nn()),
+            0x5 => self.skip_if_equals_register(instruction.x(), instruction.y()),
+            0x9 => self.skip_if_not_equals_register(instruction.x(), instruction.y()),
+            0x2 => self.call_subroutine(instruction.nnn()),
+            0x0 if instruction.nnn() == 0x0EE => self.return_subroutine(),
+            0x8 if instruction.n() == 0x0 => self.set_register(instruction.x(), instruction.y()),
+            0x8 if instruction.n() == 0x1 => self.or_register(instruction.x(), instruction.y()),
+            0x8 if instruction.n() == 0x2 => self.and_register(instruction.x(), instruction.y()),
+            0x8 if instruction.n() == 0x3 => self.xor_register(instruction.x(), instruction.y()),
+            0x8 if instruction.n() == 0x4 => self.add_register(instruction.x(), instruction.y()),
+            0x8 if instruction.n() == 0x5 => self.sub_register_xy(instruction.x(), instruction.y()),
+            0x8 if instruction.n() == 0x7 => self.sub_register_yx(instruction.x(), instruction.y()),
+            0x8 if instruction.n() == 0x6 => self.shift_right(instruction.x(), instruction.y()),
+            0x8 if instruction.n() == 0xE => self.shift_left(instruction.x(), instruction.y()),
+            0xF if instruction.nn() == 0x55 => self.store_registers(instruction.x()),
+            0xF if instruction.nn() == 0x65 => self.load_registers(instruction.x()),
+            0xF if instruction.nn() == 0x33 => self.binary_coded_decimal(instruction.x()),
+            0xF if instruction.nn() == 0x1E => self.add_to_index(instruction.x()),
             _ => panic!("Unknown instruction {}", instruction),
+        }
+    }
+
+    fn clear_display(&mut self) {
+        self.display.clear();
+    }
+
+    fn set_value(&mut self, register_number: u8, value: u8) {
+        self.registers.set_value(register_number, value);
+    }
+
+    fn set_index(&mut self, value: u16) {
+        self.index_register = value;
+    }
+
+    fn display(&mut self, x_register: u8, y_register: u8, sprite_height: u8) {
+        let x_start = self.registers.get_value(x_register) % 64;
+        let y_start = self.registers.get_value(y_register) % 32;
+
+        let mut flags_value = false;
+
+        for row in 0..sprite_height {
+            let y = y_start + row;
+            if y >= 32 {
+                break;
+            }
+            let sprite_data = self.memory.get_u8(self.index_register + (row as u16));
+            for x_offset in (BitIterator { num: sprite_data }) {
+                let x = x_start + x_offset;
+                if x >= 64 {
+                    break;
+                }
+                flags_value |= self.display.set(x as usize, y as usize);
+            }
+        }
+
+        self.registers.set_value(0xF, flags_value as u8);
+    }
+
+    fn jump(&mut self, address: u16) {
+        self.program_counter = address;
+    }
+
+    fn add_value(&mut self, register_number: u8, value: u8) {
+        let existing = self.registers.get_value(register_number);
+        let new = existing.wrapping_add(value);
+        self.registers.set_value(register_number, new);
+    }
+
+    fn skip_if_equals_value(&mut self, register_number: u8, value: u8) {
+        let x_value = self.registers.get_value(register_number);
+        if x_value == value {
+            self.program_counter += 2;
+        }
+    }
+
+    fn skip_if_not_equals_value(&mut self, register_number: u8, value: u8) {
+        let x_value = self.registers.get_value(register_number);
+        if x_value != value {
+            self.program_counter += 2;
+        }
+    }
+
+    fn skip_if_equals_register(&mut self, register_number_x: u8, register_number_y: u8) {
+        let x_value = self.registers.get_value(register_number_x);
+        let y_value = self.registers.get_value(register_number_y);
+        if x_value == y_value {
+            self.program_counter += 2;
+        }
+    }
+
+    fn skip_if_not_equals_register(&mut self, register_number_x: u8, register_number_y: u8) {
+        let x_value = self.registers.get_value(register_number_x);
+        let y_value = self.registers.get_value(register_number_y);
+        if x_value != y_value {
+            self.program_counter += 2;
+        }
+    }
+
+    fn call_subroutine(&mut self, address: u16) {
+        self.stack.push(self.program_counter);
+        self.program_counter = address;
+    }
+
+    fn return_subroutine(&mut self) {
+        let address = self.stack.pop().unwrap();
+        self.program_counter = address;
+    }
+
+    fn set_register(&mut self, register_number_x: u8, register_number_y: u8) {
+        let y_value = self.registers.get_value(register_number_y);
+        self.registers.set_value(register_number_x, y_value);
+    }
+
+    fn or_register(&mut self, register_number_x: u8, register_number_y: u8) {
+        let x_value = self.registers.get_value(register_number_x);
+        let y_value = self.registers.get_value(register_number_y);
+        let value = x_value | y_value;
+        self.registers.set_value(register_number_x, value);
+    }
+
+    fn and_register(&mut self, register_number_x: u8, register_number_y: u8) {
+        let x_value = self.registers.get_value(register_number_x);
+        let y_value = self.registers.get_value(register_number_y);
+        let value = x_value & y_value;
+        self.registers.set_value(register_number_x, value);
+    }
+
+    fn xor_register(&mut self, register_number_x: u8, register_number_y: u8) {
+        let x_value = self.registers.get_value(register_number_x);
+        let y_value = self.registers.get_value(register_number_y);
+        let value = x_value ^ y_value;
+        self.registers.set_value(register_number_x, value);
+    }
+
+    fn add_register(&mut self, register_number_x: u8, register_number_y: u8) {
+        let x_value = self.registers.get_value(register_number_x);
+        let y_value = self.registers.get_value(register_number_y);
+        let (value, overflowed) = x_value.overflowing_add(y_value);
+        self.registers.set_value(register_number_x, value);
+        self.registers.set_value(0xF, overflowed as u8);
+    }
+
+    fn sub_register_xy(&mut self, register_number_x: u8, register_number_y: u8) {
+        let x_value = self.registers.get_value(register_number_x);
+        let y_value = self.registers.get_value(register_number_y);
+        let (value, overflowed) = x_value.overflowing_sub(y_value);
+        self.registers.set_value(register_number_x, value);
+        self.registers.set_value(0xf, !overflowed as u8);
+    }
+
+    fn sub_register_yx(&mut self, register_number_x: u8, register_number_y: u8) {
+        let x_value = self.registers.get_value(register_number_x);
+        let y_value = self.registers.get_value(register_number_y);
+        let (value, overflowed) = y_value.overflowing_sub(x_value);
+        self.registers.set_value(register_number_x, value);
+        self.registers.set_value(0xf, !overflowed as u8);
+    }
+
+    fn shift_right(&mut self, register_number_x: u8, register_number_y: u8) {
+        if self.settings.assign_shift {
+            let y_value = self.registers.get_value(register_number_y);
+            self.registers.set_value(register_number_x, y_value);
+        }
+        let x_value = self.registers.get_value(register_number_x);
+        let flags_value = x_value & 0x1 != 0;
+        let shifted = x_value >> 1;
+        self.registers.set_value(register_number_x, shifted);
+        self.registers.set_value(0xf, flags_value as u8);
+    }
+
+    fn shift_left(&mut self, register_number_x: u8, register_number_y: u8) {
+        if self.settings.assign_shift {
+            let y_value = self.registers.get_value(register_number_y);
+            self.registers.set_value(register_number_x, y_value);
+        }
+        let x_value = self.registers.get_value(register_number_x);
+        let flags_value = x_value & 0x80 != 0;
+        let shifted = x_value << 1;
+        self.registers.set_value(register_number_x, shifted);
+        self.registers.set_value(0xf, flags_value as u8);
+    }
+
+    fn store_registers(&mut self, register_number: u8) {
+        for register in 0..=register_number {
+            let address = self.index_register + register as u16;
+            let x_value = self.registers.get_value(register);
+            self.memory.set_u8(address, x_value);
+        }
+        if self.settings.load_store_increment {
+            self.index_register += register_number as u16 + 1;
+        }
+    }
+
+    fn load_registers(&mut self, register_number: u8) {
+        for register in 0..=register_number {
+            let address = self.index_register + register as u16;
+            let memory_value = self.memory.get_u8(address);
+            self.registers.set_value(register, memory_value);
+        }
+        if self.settings.load_store_increment {
+            self.index_register += register_number as u16 + 1;
+        }
+    }
+
+    fn binary_coded_decimal(&mut self, register_number: u8) {
+        let x_value = self.registers.get_value(register_number);
+        let first = x_value / 100;
+        let second = (x_value / 10) % 10;
+        let third = x_value % 10;
+        self.memory.set_u8(self.index_register, first);
+        self.memory.set_u8(self.index_register + 1, second);
+        self.memory.set_u8(self.index_register + 2, third);
+    }
+
+    fn add_to_index(&mut self, register_number: u8) {
+        let x_value = self.registers.get_value(register_number);
+        self.index_register += x_value as u16;
+        if self.settings.add_to_index_overflow {
+            let overflowed = self.index_register > 0x0FFF;
+            self.registers.set_value(0xF, overflowed as u8);
         }
     }
 }
@@ -319,20 +328,6 @@ impl Instruction {
 impl Display for Instruction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:#06x}", self.value)
-    }
-}
-
-struct BitIter {
-    num: u8,
-}
-
-impl IntoIterator for BitIter {
-    type Item = u8;
-
-    type IntoIter = BitIterator;
-
-    fn into_iter(self) -> Self::IntoIter {
-        BitIterator { num: self.num }
     }
 }
 
