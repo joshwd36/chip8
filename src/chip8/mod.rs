@@ -1,10 +1,11 @@
 use std::fmt::Display;
 
-use crossbeam_channel::Sender;
+use crossbeam_channel::{Receiver, Sender};
 use rand::{rngs::ThreadRng, Rng};
 
 use self::{
     display::{Chip8Display, DisplayInstruction},
+    keypad::{Event, Keypad},
     memory::{Memory, PROGRAM_START},
     registers::Registers,
     settings::Settings,
@@ -12,6 +13,7 @@ use self::{
 };
 
 pub mod display;
+pub mod keypad;
 mod memory;
 mod registers;
 pub mod settings;
@@ -26,15 +28,22 @@ pub struct Chip8 {
     program_counter: u16,
     index_register: u16,
     rng: ThreadRng,
+    keypad: Keypad,
 }
 
 impl Chip8 {
-    pub fn new(settings: Settings, program: &[u8], sender: Sender<DisplayInstruction>) -> Self {
+    pub fn new(
+        settings: Settings,
+        program: &[u8],
+        sender: Sender<DisplayInstruction>,
+        receiver: Receiver<Event>,
+    ) -> Self {
         let memory = Memory::new(program);
         let display = Chip8Display::new(sender);
         let stack = Stack::new();
         let registers = Registers::new();
         let rng = rand::thread_rng();
+        let keypad = Keypad::new(receiver);
 
         Self {
             settings,
@@ -45,6 +54,7 @@ impl Chip8 {
             program_counter: PROGRAM_START,
             index_register: 0,
             rng,
+            keypad,
         }
     }
 
