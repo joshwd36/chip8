@@ -4,7 +4,7 @@ pub struct Keypad {
     receiver: Receiver<Event>,
     has_stopped: bool,
     key_states: [bool; 16],
-    last_pressed: Option<u8>,
+    last_pressed: LastKeyState,
 }
 
 impl Keypad {
@@ -14,7 +14,7 @@ impl Keypad {
             receiver,
             has_stopped: false,
             key_states,
-            last_pressed: None,
+            last_pressed: LastKeyState::NotWaiting,
         }
     }
 
@@ -24,7 +24,11 @@ impl Keypad {
                 Event::KeyDown(key) => self.key_states[key as usize] = true,
                 Event::KeyUp(key) => {
                     self.key_states[key as usize] = false;
-                    self.last_pressed = Some(key as u8)
+                    self.last_pressed = match self.last_pressed {
+                        LastKeyState::NotWaiting => LastKeyState::NotWaiting,
+                        LastKeyState::Waiting => LastKeyState::Pressed(key as u8),
+                        LastKeyState::Pressed(_) => LastKeyState::Pressed(key as u8),
+                    };
                 }
                 Event::Stop => self.has_stopped = true,
             }
@@ -36,8 +40,19 @@ impl Keypad {
     }
 
     pub fn last_pressed(&mut self) -> Option<u8> {
-        self.last_pressed.take()
+        let (new_state, result) = match self.last_pressed {
+            LastKeyState::NotWaiting | LastKeyState::Waiting => (LastKeyState::Waiting, None),
+            LastKeyState::Pressed(key) => (LastKeyState::NotWaiting, Some(key)),
+        };
+        self.last_pressed = new_state;
+        result
     }
+}
+
+enum LastKeyState {
+    NotWaiting,
+    Waiting,
+    Pressed(u8),
 }
 
 pub enum Event {
